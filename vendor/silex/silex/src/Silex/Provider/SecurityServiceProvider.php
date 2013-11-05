@@ -32,8 +32,10 @@ use Symfony\Component\Security\Core\Authorization\Voter\RoleHierarchyVoter;
 use Symfony\Component\Security\Core\Authorization\Voter\AuthenticatedVoter;
 use Symfony\Component\Security\Core\Authorization\AccessDecisionManager;
 use Symfony\Component\Security\Core\Role\RoleHierarchy;
+use Symfony\Component\Security\Core\Validator\Constraints\UserPasswordValidator;
 use Symfony\Component\Security\Http\Firewall;
 use Symfony\Component\Security\Http\FirewallMap;
+use Symfony\Component\Security\Http\Firewall\AbstractAuthenticationListener;
 use Symfony\Component\Security\Http\Firewall\AccessListener;
 use Symfony\Component\Security\Http\Firewall\BasicAuthenticationListener;
 use Symfony\Component\Security\Http\Firewall\LogoutListener;
@@ -69,6 +71,7 @@ class SecurityServiceProvider implements ServiceProviderInterface
 
         $app['security.role_hierarchy'] = array();
         $app['security.access_rules'] = array();
+        $app['security.hide_user_not_found'] = true;
 
         $app['security'] = $app->share(function ($app) {
             return new SecurityContext($app['security.authentication_manager'], $app['security.access_manager']);
@@ -137,12 +140,13 @@ class SecurityServiceProvider implements ServiceProviderInterface
                     $app['security.authentication_listener.'.$name.'.'.$type] = $app['security.authentication_listener.'.$type.'._proto']($name, $options);
                 }
 
-                if (!isset($app['security.authentication_provider.'.$name])) {
-                    $app['security.authentication_provider.'.$name] = $app['security.authentication_provider.'.('anonymous' == $name ? 'anonymous' : 'dao').'._proto']($name);
+                $provider = 'anonymous' === $type ? 'anonymous' : 'dao';
+                if (!isset($app['security.authentication_provider.'.$name.'.'.$provider])) {
+                    $app['security.authentication_provider.'.$name.'.'.$provider] = $app['security.authentication_provider.'.$provider.'._proto']($name);
                 }
 
                 return array(
-                    'security.authentication_provider.'.$name,
+                    'security.authentication_provider.'.$name.'.'.$provider,
                     'security.authentication_listener.'.$name.'.'.$type,
                     $entryPoint ? 'security.entry_point.'.$name.'.'.$entryPoint : null,
                     $type
@@ -158,9 +162,11 @@ class SecurityServiceProvider implements ServiceProviderInterface
                 $entryPoint = null;
                 $pattern = isset($firewall['pattern']) ? $firewall['pattern'] : null;
                 $users = isset($firewall['users']) ? $firewall['users'] : array();
-                unset($firewall['pattern'], $firewall['users']);
+                $security = isset($firewall['security']) ? (Boolean) $firewall['security'] : true;
+                $stateless = isset($firewall['stateless']) ? (Boolean) $firewall['stateless'] : false;
+                unset($firewall['pattern'], $firewall['users'], $firewall['security'], $firewall['stateless']);
 
-                $protected = count($firewall);
+                $protected = false === $security ? false : count($firewall);
 
                 $listeners = array('security.channel_listener');
 
@@ -173,7 +179,9 @@ class SecurityServiceProvider implements ServiceProviderInterface
                         $app['security.context_listener.'.$name] = $app['security.context_listener._proto']($name, array($app['security.user_provider.'.$name]));
                     }
 
-                    $listeners[] = 'security.context_listener.'.$name;
+                    if (false === $stateless) {
+                        $listeners[] = 'security.context_listener.'.$name;
+                    }
 
                     $factories = array();
                     foreach ($positions as $position) {
@@ -235,13 +243,26 @@ class SecurityServiceProvider implements ServiceProviderInterface
 
             $app['security.authentication_providers'] = array_map(function ($provider) use ($app) {
                 return $app[$provider];
-            }, $providers);
+            }, array_unique($providers));
 
             $map = new FirewallMap();
             foreach ($configs as $name => $config) {
                 $map->add(
                     is_string($config[0]) ? new RequestMatcher($config[0]) : $config[0],
-                    array_map(function ($listener) use ($app) { return $app[$listener]; }, $config[1]),
+                    array_map(function ($listenerId) use ($app, $name) {
+                        $listener = $app[$listenerId];
+
+                        if (isset($app['security.remember_me.service.'.$name])) {
+                            if ($listener instanceof AbstractAuthenticationListener) {
+                                $listener->setRememberMeServices($app['security.remember_me.service.'.$name]);
+                            }
+                            if ($listener instanceof LogoutListener) {
+                                $listener->addHandler($app['security.remember_me.service.'.$name]);
+                            }
+                        }
+
+                        return $listener;
+                    }, $config[1]),
                     $config[2] ? $app['security.exception_listener.'.$name] : null
                 );
             }
@@ -362,13 +383,15 @@ class SecurityServiceProvider implements ServiceProviderInterface
             });
         });
 
-        $app['security.authentication_listener.form._proto'] = $app->protect(function ($name, $options, $class = null) use ($app, $that) {
-            return $app->share(function () use ($app, $name, $options, $that, $class) {
-                $that->addFakeRoute(array('match', $tmp = isset($options['check_path']) ? $options['check_path'] : '/login_check', str_replace('/', '_', ltrim($tmp, '/'))));
+        $app['security.authentication_listener.form._proto'] = $app->protect(function ($name, $options) use ($app, $that) {
+            return $app->share(function () use ($app, $name, $options, $that) {
+                $that->addFakeRoute(
+                    'match',
+                    $tmp = isset($options['check_path']) ? $options['check_path'] : '/login_check',
+                    str_replace('/', '_', ltrim($tmp, '/'))
+                );
 
-                if (null === $class) {
-                    $class = 'Symfony\\Component\\Security\\Http\\Firewall\\UsernamePasswordFormAuthenticationListener';
-                }
+                $class = isset($options['listener_class']) ? $options['listener_class'] : 'Symfony\\Component\\Security\\Http\\Firewall\\UsernamePasswordFormAuthenticationListener';
 
                 if (!isset($app['security.authentication.success_handler.'.$name])) {
                     $app['security.authentication.success_handler.'.$name] = $app['security.authentication.success_handler._proto']($name, $options);
@@ -427,7 +450,11 @@ class SecurityServiceProvider implements ServiceProviderInterface
 
         $app['security.authentication_listener.logout._proto'] = $app->protect(function ($name, $options) use ($app, $that) {
             return $app->share(function () use ($app, $name, $options, $that) {
-                $that->addFakeRoute(array('get', $tmp = isset($options['logout_path']) ? $options['logout_path'] : '/logout', str_replace('/', '_', ltrim($tmp, '/'))));
+                $that->addFakeRoute(
+                    'get',
+                    $tmp = isset($options['logout_path']) ? $options['logout_path'] : '/logout',
+                    str_replace('/', '_', ltrim($tmp, '/'))
+                );
 
                 if (!isset($app['security.authentication.logout_handler.'.$name])) {
                     $app['security.authentication.logout_handler.'.$name] = $app['security.authentication.logout_handler._proto']($name, $options);
@@ -484,7 +511,8 @@ class SecurityServiceProvider implements ServiceProviderInterface
                     $app['security.user_provider.'.$name],
                     $app['security.user_checker'],
                     $name,
-                    $app['security.encoder_factory']
+                    $app['security.encoder_factory'],
+                    $app['security.hide_user_not_found']
                 );
             });
         });
@@ -494,21 +522,33 @@ class SecurityServiceProvider implements ServiceProviderInterface
                 return new AnonymousAuthenticationProvider($name);
             });
         });
+
+        if (isset($app['validator'])) {
+            $app['security.validator.user_password_validator'] = $app->share(function ($app) {
+                return new UserPasswordValidator($app['security'], $app['security.encoder_factory']);
+            });
+
+            if (!isset($app['validator.validator_service_ids'])) {
+                $app['validator.validator_service_ids'] = array();
+            }
+
+            $app['validator.validator_service_ids'] = array_merge($app['validator.validator_service_ids'], array('security.validator.user_password' => 'security.validator.user_password_validator'));
+        }
     }
 
     public function boot(Application $app)
     {
-        $app['dispatcher']->addListener('kernel.request', array($app['security.firewall'], 'onKernelRequest'), 8);
+        $app['dispatcher']->addSubscriber($app['security.firewall']);
 
         foreach ($this->fakeRoutes as $route) {
-            $method = $route[0];
+            list($method, $pattern, $name) = $route;
 
-            $app->$method($route[1], function() {})->bind($route[2]);
+            $app->$method($pattern, null)->bind($name);
         }
     }
 
-    public function addFakeRoute($route)
+    public function addFakeRoute($method, $pattern, $name)
     {
-        $this->fakeRoutes[] = $route;
+        $this->fakeRoutes[] = array($method, $pattern, $name);
     }
 }

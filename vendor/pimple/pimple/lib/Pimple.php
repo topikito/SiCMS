@@ -32,7 +32,7 @@
  */
 class Pimple implements ArrayAccess
 {
-    private $values;
+    protected $values = array();
 
     /**
      * Instantiate the container.
@@ -78,7 +78,9 @@ class Pimple implements ArrayAccess
             throw new InvalidArgumentException(sprintf('Identifier "%s" is not defined.', $id));
         }
 
-        return $this->values[$id] instanceof Closure ? $this->values[$id]($this) : $this->values[$id];
+        $isFactory = is_object($this->values[$id]) && method_exists($this->values[$id], '__invoke');
+
+        return $isFactory ? $this->values[$id]($this) : $this->values[$id];
     }
 
     /**
@@ -111,7 +113,7 @@ class Pimple implements ArrayAccess
      *
      * @return Closure The wrapped closure
      */
-    public function share(Closure $callable)
+    public static function share(Closure $callable)
     {
         return function ($c) use ($callable) {
             static $object;
@@ -133,7 +135,7 @@ class Pimple implements ArrayAccess
      *
      * @return Closure The protected closure
      */
-    public function protect(Closure $callable)
+    public static function protect(Closure $callable)
     {
         return function ($c) use ($callable) {
             return $callable;
