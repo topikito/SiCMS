@@ -1,125 +1,124 @@
 <?php
 
 require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/cms_autoload.php';
+require_once __DIR__ . '/autoload.php';
+require_once __DIR__ . '/config_loader.php';
 
+use Silex\Provider\TwigServiceProvider;
+use Silex\Provider\TranslationServiceProvider;
+use Silex\Provider\DoctrineServiceProvider;
+use Symfony\Component\Config\FileLocator;
+use SiCMS\Config\ConfigLoader;
+
+/**
+ * Class Bootstrap
+ */
 class Bootstrap
 {
 
-	protected $_config;
+	/**
+	 * @var Silex\Application
+	 */
 	protected $_app;
 
-	private function __construct($config)
+	/**
+	 *
+	 */
+	private function __construct()
 	{
+		// Let the magic BEGIN!!
 		$this->_app = new Silex\Application();
-		$this->_config = $config;
 	}
 
-	public function loadConfig()
+	/**
+	 * @param $configFile
+	 *
+	 * @return $this
+	 */
+	public function loadConfig($configFile)
 	{
+		$fileLocator = new FileLocator(__DIR__);
+
+		$configLoader = new ConfigLoader($this->_app);
+		$configLoader->load($fileLocator->locate($configFile));
+
 		/** CONFIG * */
-		$this->_app->register(new Silex\Provider\TwigServiceProvider(), array(
-			'twig.path' => __DIR__ . '/../src/views',
-		));
-		$this->_app->register(new Silex\Provider\TranslationServiceProvider(), array(
-			'translator.messages' => array()
-		));
-		$this->_app->register(new Silex\Provider\DoctrineServiceProvider(), array(
-			'db.options' => array(
+		$this->_app->register(new TwigServiceProvider(), [
+			'twig.path' => __DIR__ . '/../src/views'
+		]);
+
+		$this->_app->register(new TranslationServiceProvider(), [
+			'translator.messages' => []
+		]);
+
+		$this->_app->register(new DoctrineServiceProvider(), [
+			'db.options' => [
 				'driver' => 'pdo_mysql',
-				'host' => $this->_config['database.host'],
-				'dbname' => $this->_config['database.name'],
-				'user' => $this->_config['database.user'],
-				'password' => $this->_config['database.password'],
-			),
-		));
-		$this->_app['debug'] = $this->_config['debug.mode'];
+				'host' => $this->_app['config']['database']['host'],
+				'dbname' => $this->_app['config']['database']['name'],
+				'user' => $this->_app['config']['database']['user'],
+				'password' => $this->_app['config']['database']['password'],
+			],
+		]);
+
+		$this->_app['debug'] = $this->_app['config']['debug']['mode'];
 		return $this;
 	}
 
-    private function loadDispatcher()
-    {
-        CmsObject::setApplication($this->_app);
-        CmsObject::setConfig($this->_config);
+	/**
+	 * @return $this
+	 */
+	private function loadDispatcher()
+	{
+		//TODO: Improve this and use the Silex native way
+		list($firstName) = explode('.', $_SERVER['SERVER_NAME']);
 
-        //TODO: Improve this and use the Silex native way
-        list($firstName) = explode('.',$_SERVER['SERVER_NAME']);
+		switch ($firstName)
+		{
+			default:
+				$this->loadDefaultDispatcher();
+		}
+		return $this;
+	}
 
-        switch ($firstName)
-        {
-            case 'api':
-                $this->loadApiDispatcher();
-                break;
-
-            default:
-                $this->loadDefaultDispatcher();
-        }
-        return $this;
-    }
-
-    public function loadApiDispatcher()
-    {
-        //TODO: Change '/' for '/paste' or '/save'. Maybe use "PUT" instead
-        $this->_app->post('/', function ()
-        {
-            $con = new CodeApiController(array('callingFrom' => 'api'));
-            return $con->saveCode();
-        });
-
-        $this->_app->get('/{id}', function ($id)
-        {
-            $con = new CodeApiController(array('callingFrom' => 'api'));
-            return $con->viewCode($id);
-        });
-
-        return $this;
-    }
-
+	/**
+	 * @return $this
+	 */
 	public function loadDefaultDispatcher()
 	{
-        /** POSTERS **/
-        $this->_app->post('/', function ()
-        {
-            $con = new CodeController();
-            return $con->saveCode();
-        });
-
-        /** GETTERS */
 		$this->_app->get('/', function ()
-			{
-				$con = new CodeController();
-				return $con->index();
-			});
-
-		$this->_app->get('/{id}', function ($id)
-			{
-				$con = new CodeController();
-				return $con->viewCode($id);
-			});
-
-		$this->_app->get('/{id}/raw', function ($id)
-			{
-				$con = new CodeController();
-				return $con->viewRaw($id);
-			});
+		{
+			$con = new \SiCMS\Controllers\Code($this->_app);
+			return $con->index();
+		});
 
 		return $this;
 	}
 
+	/**
+	 * @return \Silex\Application
+	 */
 	public function getApplication()
 	{
 		return $this->_app;
 	}
 
-	static public function load($config)
+	/**
+	 * @param array $params
+	 *
+	 * @return mixed
+	 */
+	static public function load($params = [])
 	{
-		$me = new static($config);
-		$me->loadConfig()->loadDispatcher();
+		$configRoute = null;
+
+		extract($params);
+
+		$me = new static();
+		$me->loadConfig($configRoute)->loadDispatcher();
 		return $me->getApplication();
 	}
 
 }
 
-$config = parse_ini_file('config.ini', true);
-define('ENV', $config['cms.env']);
-return Bootstrap::load($config[ENV]);
+return Bootstrap::load(['configRoute' => 'config.yml']);

@@ -1,0 +1,24 @@
+--- ENVIRNOMENT CONFIGURATION FILE
+
+common:
+  database:
+    host: localhost
+    name: cms_db
+
+  debug:
+    mode: false
+
+dev:
+  database:
+    user: root
+    password: root
+
+  debug:
+    mode: true
+
+  cms:
+    hostname: sicms.loc
+
+staging:
+
+production:

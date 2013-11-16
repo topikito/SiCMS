@@ -1,17 +1,31 @@
 <?php
 
-class CmsController extends CmsObject
+namespace SiCMS\Core;
+
+/**
+ * Class CmsController
+ *
+ * @package SiCMS\Core
+ */
+class CmsController
 {
 
+	/**
+	 * @var \Silex\Application
+	 */
 	protected   $_app;
-    protected   $_config;
 
-    protected   $_typeOfView = 'twig';
+	/**
+	 * @var string
+	 */
+	protected   $_typeOfView = 'twig';
 
-	public function __construct()
+	/**
+	 * @param \Silex\Application $app
+	 */
+	public function __construct(\Silex\Application $app)
 	{
-		$this->_app     = self::$_application;
-        $this->_config    = self::$_configuration;
+		$this->_app     = $app;
 	}
 
     /**
@@ -32,22 +46,37 @@ class CmsController extends CmsObject
         return true;
     }
 
-    protected function _render($templateName = null, $args = null)
+	/**
+	 * @param null $templateName
+	 * @param null $args
+	 *
+	 * @return \Symfony\Component\HttpFoundation\JsonResponse
+	 */
+	protected function _render($templateName = null, $args = null)
     {
+	    $response = null;
         switch ($this->_typeOfView)
         {
             case 'json':
-                return $this->_app->json($args);
+                $response = $this->_app->json($args);
                 break;
 
             case 'twig':
             default:
-                return $this->_app['twig']->render($templateName, $args);
+                $response = $this->_app['twig']->render($templateName, $args);
                 break;
         }
+
+	    return $response;
     }
 
-    protected function _renderError($message, $errorCode = 500)
+	/**
+	 * @param     $message
+	 * @param int $errorCode
+	 *
+	 * @return \Symfony\Component\HttpFoundation\JsonResponse
+	 */
+	protected function _renderError($message, $errorCode = 500)
     {
         switch ($this->_typeOfView)
         {
@@ -62,12 +91,15 @@ class CmsController extends CmsObject
         }
     }
 
-    public function setTypeOfView($type)
+	/**
+	 * @param $type
+	 *
+	 * @return bool
+	 */
+	public function setTypeOfView($type)
     {
         $this->_typeOfView = $type;
         return true;
     }
 
 }
-
-?>

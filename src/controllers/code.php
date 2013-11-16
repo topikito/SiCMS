@@ -1,12 +1,14 @@
 <?php
 
-class CodeController extends CmsController
+namespace SiCMS\Controllers;
+
+class Code extends \SiCMS\Core\CmsController
 {
     protected   $_callingFrom = 'www';
 
-	public function __construct($params = array())
+	public function __construct($app)
 	{
-		parent::__construct();
+		parent::__construct($app);
 
         if (isset($params['callingFrom']))
         {
@@ -21,7 +23,7 @@ class CodeController extends CmsController
 
     protected function _loadForm()
     {
-        $this->_app->register(new Silex\Provider\FormServiceProvider);
+        $this->_app->register(new \Silex\Provider\FormServiceProvider);
         $form = $this->_app['form.factory']->createBuilder('form')
             ->add('code', 'textarea', array('label' => ' ', 'attr' => array('style' => 'height: 300px', 'class' => 'span12')))
             ->add('langLabel', 'text', array('label' => 'Language', 'required' => false, 'attr' => array('placeholder' => 'Auto')))

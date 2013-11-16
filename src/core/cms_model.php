@@ -1,18 +1,33 @@
 <?php
 
-class CmsModel extends CmsObject
+namespace SiCMS\Core;
+
+/**
+ * Class CmsModel
+ *
+ * @package SiCMS\Core
+ */
+class CmsModel
 {
 
+	/**
+	 * @var
+	 */
 	protected $_tableName;
+	/**
+	 * @var \Silex\Application
+	 */
 	protected $_app;
 
-	public function __construct()
+	/**
+	 * @param \Silex\Application $app
+	 */
+	public function __construct(\Silex\Application $app)
 	{
-		$this->_app = self::$_application;
+		$this->_app = $app;
 	}
 
 	/**
-	 *
 	 * Conditions must be specified in the following structure:
 	 * 		array('key' => value)
 	 * 			- This implies '=' condition
@@ -20,6 +35,8 @@ class CmsModel extends CmsObject
 	 * 			- This constructs "key" "type" "value"
 	 *
 	 * @param array $conditions
+	 *
+	 * @return bool
 	 */
 	public function get($conditions = array())
 	{
@@ -53,6 +70,11 @@ class CmsModel extends CmsObject
 		return $result;
 	}
 
+	/**
+	 * @param $values
+	 *
+	 * @return bool
+	 */
 	public function save($values)
 	{
 		if (!is_array($values) || empty($values))
@@ -66,6 +88,12 @@ class CmsModel extends CmsObject
 		return $insertedId;
 	}
 
+	/**
+	 * @param $newValues
+	 * @param $whereValues
+	 *
+	 * @return bool
+	 */
 	public function update($newValues, $whereValues)
 	{
 		if (!is_array($newValues) || !is_array($whereValues) || empty($newValues) || empty($whereValues))
@@ -78,11 +106,17 @@ class CmsModel extends CmsObject
 		return $result;
 	}
 
+	/**
+	 * @return mixed
+	 */
 	public function begin()
 	{
 		return $this->_app['db']->beginTransaction();
 	}
 
+	/**
+	 * @return mixed
+	 */
 	public function commit()
 	{
 		return $this->_app['db']->commit();
