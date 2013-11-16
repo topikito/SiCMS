@@ -1,4 +1,10 @@
+.htaccess
+
 /.idea/
 /vendor/
+/public/
+/views/
+/config/
 
-/config/config.yml
+/src/*
+!/src/core

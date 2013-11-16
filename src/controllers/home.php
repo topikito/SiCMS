@@ -2,7 +2,7 @@
 
 namespace SiCMS\Controllers;
 
-class Code extends \SiCMS\Core\CmsController
+class Home extends \SiCMS\Core\CmsController
 {
     protected   $_callingFrom = 'www';
 

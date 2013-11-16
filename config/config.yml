@@ -1,12 +1,17 @@
 --- ENVIRNOMENT CONFIGURATION FILE
 
+# Common base for every environment
 common:
   database:
     host: localhost
-    name: foo
+    name: foo_bar
 
   debug:
     mode: false
+
+  cms:
+    views:
+      rootFolder: /src/views
 
 dev:
   database:
@@ -19,6 +24,7 @@ dev:
   cms:
     hostname: example.com
 
-staging:
 
+# Other ENVS, for example
+staging:
 production:
