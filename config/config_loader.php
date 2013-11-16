@@ -23,25 +23,6 @@ class ConfigLoader
 		$this->_app = $_app;
 	}
 
-	private function _mergeConfigs(&$configA, &$configB)
-	{
-		$merged = $configA;
-
-		foreach ($configB as $key => &$value)
-		{
-			if (is_array($value) && isset ($merged[$key]) && is_array ($merged[$key]))
-			{
-				$merged [$key] = $this->_mergeConfigs( $merged [$key], $value );
-			}
-			else
-			{
-				$merged [$key] = $value;
-			}
-		}
-
-		return $merged;
-	}
-
 	/**
 	 * @param $configA
 	 * @param $configB

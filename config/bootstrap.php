@@ -42,8 +42,6 @@ class Bootstrap
 		$configLoader = new ConfigLoader($this->_app);
 		$configLoader->load($fileLocator->locate($configFile));
 
-		echo '<pre>';var_dump($this->_app['config']);die;
-
 		/** CONFIG * */
 		$this->_app->register(new TwigServiceProvider(), [
 			'twig.path' => __DIR__ . '/../src/views'
