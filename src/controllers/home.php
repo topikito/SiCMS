@@ -2,7 +2,7 @@
 
 namespace SiCMS\Controllers;
 
-class Home extends \SiCMS\Core\CmsController
+class Home extends \SilexMVC\Controller
 {
     protected   $_callingFrom = 'www';
 

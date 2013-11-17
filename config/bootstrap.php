@@ -8,8 +8,25 @@ require_once __DIR__ . '/router.php';
 /**
  * Class Bootstrap
  */
-class Bootstrap extends SiCMS\Core\CmsBootstrap
+class Bootstrap extends \SilexMVC\Bootstrap
 {
+
+	function loadDispatcher()
+	{
+		$router = new Router($this->_app);
+		$router->load();
+	}
+
+	function getConfigLoader()
+	{
+		return new ConfigLoader($this->_app);
+	}
+
 }
 
-return Bootstrap::load(['configFile' => 'config.yml']);
+$params = [
+	'configFile' => 'config.yml',
+	'configPaths' => __DIR__
+];
+
+return Bootstrap::load($params);
