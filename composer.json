@@ -2,6 +2,6 @@
 	"require": {
 		"silex/silex": "1.*",
 		"symfony/symfony": "2.*",
-		"topikito/sicms": ">=1"
+		"topikito/silex-mvc": ">=1"
 	}
 }
