@@ -1,7 +1,7 @@
 {
 	"require": {
 		"silex/silex": "1.*",
-		"symfony/config": "2.*",
-		"symfony/symfony": "2.*"
+		"symfony/symfony": "2.*",
+		"topikito/sicms": "dev-master"
 	}
 }
