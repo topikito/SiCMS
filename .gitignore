@@ -1,11 +1,3 @@
-.htaccess
-
 /.idea/
 /vendor/
-/public/
-/views/
-/config/
-
-/src/*
-!/src/core
 /composer.lock
